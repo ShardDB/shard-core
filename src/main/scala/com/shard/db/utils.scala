@@ -1,8 +1,6 @@
 package com.shard.db
 
 import java.io.File
-import java.security.MessageDigest
-
 
 /**
   * Author: Nicholas Connor

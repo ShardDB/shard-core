@@ -3,8 +3,7 @@ package com.shard.db
 import akka.actor.{ActorSystem, Props}
 import akka.pattern.ask
 import akka.util.Timeout
-import com.shard.db.structure.Shard
-import com.shard.db.structure.Shard.Insert
+import com.shard.db.query.Insert
 import com.shard.db.test.{User, UserCluster, UserShard}
 
 import scala.concurrent.Await

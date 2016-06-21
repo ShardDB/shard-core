@@ -28,6 +28,7 @@ abstract class Shard[T <: Record] extends PersistentActor with ActorLogging {
 
   val schema: Seq[Schema]
 
+  val persistenceId = UUID.randomUUID().toString
   var state: scala.collection.mutable.Map[UUID, T] = mutable.Map.empty[UUID, T]
 
   def receiveCommand = {
@@ -45,10 +46,6 @@ abstract class Shard[T <: Record] extends PersistentActor with ActorLogging {
     case SnapshotOffer(_, s: scala.collection.mutable.Map[UUID, T]) =>
       state = s
   }
-
-  def pickleTo(item: T, filename: String): Unit
-
-  def unpickleFrom(filename: String): T
 
   private lazy val _indexes: Seq[Index[T]] = {
     try {
@@ -68,16 +65,6 @@ abstract class Shard[T <: Record] extends PersistentActor with ActorLogging {
   private lazy val _uniqueIndexes: Seq[UniqueIndex[T]] = _indexes.flatMap {
     case u: UniqueIndex[T] => Some(u)
     case _ => None
-  }
-
-  protected def fromSnapshot(filename: String): Unit = utils.getListOfFiles(filename).foreach { f =>
-    insert(unpickleFrom(f.getCanonicalPath))
-  }
-
-  protected def snapshot() = {
-    state.foreach { case (uuid, record) =>
-      pickleTo(record, "/var/lib/reactive-db-test/"+uuid.toString)
-    }
   }
 
   private def indexData() = {
@@ -114,7 +101,6 @@ abstract class Shard[T <: Record] extends PersistentActor with ActorLogging {
   protected def insert(item: T): UUID = {
     // Check indexes
     checkUnique(item)
-    println(self.path.name)
     _uniqueIndexes.foreach( ui => ui.add(item))
     state(item._recordId) = item
     item._recordId
