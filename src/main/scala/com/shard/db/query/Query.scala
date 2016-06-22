@@ -2,17 +2,12 @@ package com.shard.db.query
 
 import com.shard.db.Record
 import com.shard.db.query.Ops.Op
-import com.shard.db.query.QueryTypeAliases.SimpleFilter
 
 /**
   * Author: Nicholas Connor
   * Date: 6/21/16
   * Package: com.shard.db.query
   */
-
-object QueryTypeAliases {
-  type SimpleFilter = (Record) => Boolean
-}
 
 object Ops {
   sealed trait Op
@@ -38,8 +33,8 @@ trait Query {
 }
 
 case object All
-case class Where(expr: Either[SimpleFilter, FilterExpression], override val cache: Boolean = false) extends Query
-case class Find[T <: Record](record: T) extends Query
-case class Insert[T <: Record](record: T) extends Query
+case class Where[T](expr: Either[(T) => Boolean, FilterExpression], override val cache: Boolean = false) extends Query
+case class Find[T](record: T) extends Query
+case class Insert[T](record: T) extends Query
 case class Update(record: Record) extends Query
 case object Size extends Query
