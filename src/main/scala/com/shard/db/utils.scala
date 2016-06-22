@@ -8,6 +8,15 @@ import java.io.File
   * Package: com.example
   */
 package object utils {
+
+  def time[R](block: => R, msg: String): R = {
+    val t0 = System.nanoTime()
+    val result = block    // call-by-name
+    val t1 = System.nanoTime()
+    println("Elapsed time: " + ((t1 - t0) / 1000000000.0) + "s ---" + msg)
+    result
+  }
+
   def getListOfFiles(dir: String):List[File] = {
     val d = new File(dir)
     if (d.exists && d.isDirectory) {

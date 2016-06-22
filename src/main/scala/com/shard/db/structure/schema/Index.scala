@@ -3,6 +3,7 @@ package com.shard.db.structure.schema
 import java.util.UUID
 
 import com.shard.db.Record
+import com.shard.db.exception.UniqueKeyConstraintException
 
 import scala.collection.mutable
 
@@ -14,25 +15,53 @@ import scala.collection.mutable
 
 trait Schema
 
-//object IndexTest {
-//  def by[T](f: T => Index): String = {
-//    f
-//    ""
-//  }
-//}
-
 trait Index[T <: Record] extends Schema {
+  val _data: mutable.Iterable
+  val getKey: (T) => Any
+  def get(key: Any): Seq[UUID]
   val name: String
-  val fromModel: (T) => Any
+  def add(item: T): Unit
+}
+
+case class HashIndex[T <: Record](name: String, getKey: (T) => Any) extends Index {
+
   val _data: mutable.Map[Any, scala.collection.mutable.MutableList[UUID]] = mutable.Map.empty[Any, mutable.MutableList[UUID]]
-  def exists(key: Any): Boolean = _data.contains(key)
-  def add(item: T) = {
-    if (exists(fromModel(item))) {
-      _data(fromModel(item)) += item._recordId
+
+  def exists(item: T): Boolean = _data.contains(getKey(item))
+
+  def get(key: Any): Seq[UUID] = {
+    _data.get(key) match {
+      case Some(ids) => ids.toSeq
+      case None => Seq.empty[UUID]
+    }
+  }
+
+  def add(item: T): Unit = {
+    if (exists(item)) {
+      _data(getKey(item)) += item._recordId
     } else {
-      _data(fromModel(item)) = mutable.MutableList(item._recordId)
+      _data(getKey(item)) = mutable.MutableList(item._recordId)
     }
   }
 }
 
-case class UniqueIndex[M <: Record](name: String, fromModel: (M) => Any) extends Index[M]
+case class UniqueIndex[T <: Record](override val name: String, override val getKey: (T) => Any) extends HashIndex[T](name, getKey) {
+
+  override val _data: mutable.Map[Any, UUID] = mutable.Map.empty[Any, UUID]
+
+  override def get(key: Any): Seq[UUID] = {
+    _data.get(key) match {
+      case Some(id) => Seq(id)
+      case None => Seq.empty[UUID]
+    }
+  }
+
+  override def add(item: T): Unit = {
+    if (exists(item)) {
+      throw new UniqueKeyConstraintException("Unique index: key already exists!")
+    } else {
+      _data(getKey(item)) = item._recordId
+    }
+  }
+
+}

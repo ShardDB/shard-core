@@ -1,9 +1,9 @@
 package com.shard.db.test
 
 
-import akka.actor.Props
-import com.shard.db.structure.{Cluster, Shard}
+import com.shard.db.structure.Shard
 import com.shard.db.Record
+import com.shard.db.structure.schema.Schema
 
 
 /**
@@ -12,12 +12,18 @@ import com.shard.db.Record
   * Package: com.example
   */
 
-class UserShard extends Shard[User]
+class UserShard(
+                 override val persistenceId: String,
+                 override val schema: Seq[Schema] = Seq.empty[Schema]
+               ) extends Shard[User]
 
-class UserCluster extends Cluster[User] {
-  val props = Props(new UserShard())
-  val numberOfShards = 5
-}
+// class UserCluster(
+//                    override val persistenceId: String,
+//                    override val schema: Seq[Schema] = Seq.empty[Schema]
+//                  ) extends Cluster[User] {
+//   val props = Props(new UserShard(persistenceId))
+//   val numberOfShards = 5
+// }
 
 case class User(age: Int, name: String) extends Record {
 
