@@ -20,11 +20,6 @@ abstract class Shard[T] extends PersistentActor with ActorLogging {
   implicit val schema: Schema[T]
   var state: scala.collection.mutable.Map[Any, T] = mutable.Map.empty[Any, T]
 
-  // How to get this working?
-  implicit class DataExtensions(item: T) {
-    def primaryKey = schema.primaryIndex.getKey(item)
-  }
-
   def receiveCommand = {
 
     case "ping" => persistAsync("ping") { evt => sender() ! "pong" }
@@ -33,9 +28,9 @@ abstract class Shard[T] extends PersistentActor with ActorLogging {
     case i: Insert[T] => persistAsync(i) { evt => sender() ! insert(evt.record) }
     case f: Find[T] => persistAsync(f) { evt => sender() ! find(evt.record) }
 
-    case w: Where[Either[(T) => Boolean, FilterExpression]] => persistAsync(w) { evt =>
+    case w: Where[T] => persistAsync(w) { evt =>
       evt.expr match {
-        case Left(simp) => sender() ! where(simp)
+        case Left(expr) => sender() ! where(expr)
         case Right(expr) => sender() ! where(expr)
       }
     }
@@ -53,7 +48,7 @@ abstract class Shard[T] extends PersistentActor with ActorLogging {
   private lazy val _indexes: Map[String, Index[T]] = schema.secondaryIndexes.map(i => i.name -> i).toMap
 
   private def indexData() = {
-    _indexes.foreach { case(indexName, index) =>
+    _indexes.foreach { case (indexName, index) =>
       state.foreach { case (key, item) =>
         try {
           index.add(item)
@@ -76,7 +71,7 @@ abstract class Shard[T] extends PersistentActor with ActorLogging {
     val indexedIds = expr.op match {
       case EqualTo =>
         val possibleIndex = _indexes.get(expr.keyName)
-        possibleIndex.map { i => i.get(expr.value)}
+        possibleIndex.map { i => i.get(expr.value) }
     }
 
     indexedIds match {
@@ -90,7 +85,7 @@ abstract class Shard[T] extends PersistentActor with ActorLogging {
   protected def all: Seq[T] = state.values.toSeq
 
   protected def insert(item: T): Any = {
-    _indexes.foreach { case(name, ui) => ui.add(item) }
+    _indexes.foreach { case (name, ui) => ui.add(item) }
     val pk = schema.primaryIndex.getKey(item)
     state(pk) = item
     pk

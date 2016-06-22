@@ -16,7 +16,7 @@ class UserShard(
                  override val persistenceId: String
                ) extends Shard[User] {
   val schema = Schema(
-    primaryIndex = PrimaryIndex[User](getKey = (u: User) => u.id),
+    primaryIndex = new PrimaryIndex[User](getKey = (u: User) => u.id),
     storageEngine = "HashMap",
     secondaryIndexes = Seq.empty[Index[User]]
   )

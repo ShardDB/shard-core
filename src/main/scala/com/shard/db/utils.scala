@@ -17,6 +17,13 @@ package object utils {
     result
   }
 
+  def timeInSeconds[R](block: => R): Double = {
+    val t0 = System.nanoTime()
+    val result = block    // call-by-name
+    val t1 = System.nanoTime()
+    (t1 - t0) / 1000000000.0
+  }
+
   def getListOfFiles(dir: String):List[File] = {
     val d = new File(dir)
     if (d.exists && d.isDirectory) {

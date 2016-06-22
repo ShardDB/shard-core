@@ -9,26 +9,10 @@ import com.shard.db.query.Ops.Op
   * Package: com.shard.db.query
   */
 
-object Ops {
-  sealed trait Op
-  case object GreaterThan extends Op
-  case object GreaterThanOrEqualTo extends Op
-  case object LessThan extends Op
-  case object LessThanOrEqualTo extends Op
-  case object EqualTo extends Op
 
-  implicit class Operators(s: String) {
-    def >(value: Any) = FilterExpression(s, Ops.GreaterThan, value)
-    def <(value: Any) = FilterExpression(s, Ops.LessThan, value)
-    def >=(value: Any) = FilterExpression(s, Ops.GreaterThanOrEqualTo, value)
-    def <=(value: Any) = FilterExpression(s, Ops.LessThanOrEqualTo, value)
-    def ==(value: Any) = FilterExpression(s, Ops.EqualTo, value)
-  }
-}
 
-case class FilterExpression(keyName: String, op: Op, value: Any)
 
-trait Query {
+sealed trait Query {
   val cache = false
 }
 

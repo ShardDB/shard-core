@@ -7,7 +7,7 @@ import scala.collection.mutable
   * Date: 6/22/16
   * Package: com.shard.db.structure.schema
   */
-case class HashIndex[T](name: String, getKey: (T) => Any) extends Index {
+class HashIndex[T](override val name: String, override val getKey: (T) => Any) extends Index[T] {
 
   val _data: mutable.Map[Any, scala.collection.mutable.MutableList[Any]] = mutable.Map.empty[Any, mutable.MutableList[Any]]
 

@@ -5,4 +5,4 @@ package com.shard.db.structure.schema
   * Date: 6/22/16
   * Package: com.shard.db.structure.schema
   */
-case class PrimaryIndex[T](override val getKey: (T) => Any) extends UniqueIndex(name="primaryKey", getKey)
+class PrimaryIndex[T](override val getKey: (T) => Any) extends UniqueIndex[T](name="primaryKey", getKey)
