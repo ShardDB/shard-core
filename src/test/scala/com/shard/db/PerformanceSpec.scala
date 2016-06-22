@@ -3,7 +3,7 @@ package com.shard.db
 import java.util.UUID
 
 import akka.actor.Props
-import com.shard.db.query.{Insert, Size}
+import com.shard.db.query.Insert
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.{Await, Future}

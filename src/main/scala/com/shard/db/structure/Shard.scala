@@ -14,7 +14,6 @@ import scala.collection.mutable
   * Date: 6/21/16
   * Package: com.shard.db.structure
   */
-
 abstract class Shard[T] extends PersistentActor with ActorLogging {
 
   implicit val schema: Schema[T]
