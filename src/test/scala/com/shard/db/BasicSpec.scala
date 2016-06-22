@@ -7,15 +7,13 @@ package com.shard.db
   */
 import java.util.UUID
 
-import akka.actor.{ActorSystem, Props}
-import akka.persistence.serialization.Snapshot
-import akka.util.Timeout
+import akka.actor.Props
 import akka.pattern.ask
-import com.shard.db.query.{Find, Insert, Size}
+import com.shard.db.query.{Find, Insert}
 import org.scalatest._
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class BasicSpec extends FlatSpec with Matchers {
@@ -27,7 +25,7 @@ class BasicSpec extends FlatSpec with Matchers {
 
     val userTable = db.system.actorOf(Props(new UserShard("testBasic")), "userShardBasic")
 
-    val henry = User(UUID.randomUUID(), 30, "Henry")
+    val henry = User(UUID.randomUUID(), 30, "Henry", "DeWalt")
 
     val ins = Await.result((userTable ? Insert(henry)).mapTo[UUID], 2 seconds)
     val find = Await.result((userTable ? Find(henry)).mapTo[Option[User]].map{_.get}, 2 seconds)
