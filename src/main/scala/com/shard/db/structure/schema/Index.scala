@@ -7,7 +7,7 @@ import scala.collection.mutable
   * Date: 6/19/16
   */
 trait Index[T] {
-  val _data: mutable.Map[Any, _]
+  val _data: mutable.Map[Any, scala.collection.mutable.MutableList[Any]] = mutable.Map.empty[Any, mutable.MutableList[Any]]
   val getKey: (T) => Any
   def get(key: Any): Seq[Any]
   val name: String

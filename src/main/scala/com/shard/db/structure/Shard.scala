@@ -6,8 +6,14 @@ import akka.persistence.{PersistentActor, SaveSnapshotFailure, SaveSnapshotSucce
 import com.shard.db.query._
 import com.shard.db.query.Ops.EqualTo
 import com.shard.db.structure.schema.{Index, Schema}
-
+import Ops.Operators
+import akka.pattern.ask
+import akka.util.Timeout
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.collection.mutable
+import scala.concurrent.Future
+import scala.concurrent.duration._
+import akka.pattern.pipe
 
 /**
   * Author: Nicholas Connor
@@ -19,19 +25,48 @@ abstract class Shard[T] extends PersistentActor with ActorLogging {
   implicit val schema: Schema[T]
   var state: scala.collection.mutable.Map[Any, T] = mutable.Map.empty[Any, T]
 
+  implicit val timeout = Timeout(10.seconds)
+
   def receiveCommand = {
 
     case "ping" => persistAsync("ping") { evt => sender() ! "pong" }
 
     case All => persistAsync(All) { evt => sender() ! all }
+
+    /// without indexes we could do (L, R) => Boolean
+    /// lets keep to the assumption that we
+    /// only use HashIndexes for a sec
+    case lj: InnerJoin => persistAsync(lj) { evt =>
+      val leftIndex = if(evt.leftKey == "primaryKey") schema.primaryIndex._data else _indexes(evt.leftKey)._data
+      // Hrm this seems a little complex
+      Future.sequence {
+        // for every index in the Left,
+        leftIndex.map { case (k1, ids1) =>
+          // Query the right for IDS
+          val rightFuture = (evt.rightTable ? Where(evt.rightKey === k1)).mapTo[Seq[Any]]
+          // on every Right Record
+          // if non-empty, join to left record
+          rightFuture.map { rightSeq =>
+            if(rightSeq.isEmpty) {
+              None
+            } else {
+              Some(rightSeq.map { rightItem =>
+                (state(k1), rightItem)
+              })
+            }
+          }
+        }
+        // Flatten the shit out of it
+      }.map {_.flatten.toSeq.flatten} pipeTo sender()
+    }
+
     case i: Insert[T] => persistAsync(i) { evt => sender() ! insert(evt.record) }
+    case i: InsertMany[T] => persistAsync(i) { evt => sender() ! insertMany(evt.record) }
+
     case f: Find[T] => persistAsync(f) { evt => sender() ! find(evt.record) }
 
     case w: Where[T] => persistAsync(w) { evt =>
-      evt.expr match {
-        case Left(expr) => sender() ! where(expr)
-        case Right(expr) => sender() ! where(expr)
-      }
+      sender() ! where(evt.expr)
     }
 
     case Size => persistAsync(Size) { evt => sender() ! state.size }
@@ -67,6 +102,7 @@ abstract class Shard[T] extends PersistentActor with ActorLogging {
   }
 
   protected def where(expr: FilterExpression): Seq[T] = {
+
     val indexedIds = expr.op match {
       case EqualTo =>
         val possibleIndex = _indexes.get(expr.keyName)
@@ -83,7 +119,10 @@ abstract class Shard[T] extends PersistentActor with ActorLogging {
 
   protected def all: Seq[T] = state.values.toSeq
 
+  protected def insertMany(items: Seq[T]) = items.map(insert)
+
   protected def insert(item: T): Any = {
+    schema.primaryIndex.add(item)
     _indexes.foreach { case (name, ui) => ui.add(item) }
     val pk = schema.primaryIndex.getKey(item)
     state(pk) = item

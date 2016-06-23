@@ -9,7 +9,7 @@ import scala.collection.mutable
   */
 class HashIndex[T](override val name: String, override val getKey: (T) => Any) extends Index[T] {
 
-  val _data: mutable.Map[Any, scala.collection.mutable.MutableList[Any]] = mutable.Map.empty[Any, mutable.MutableList[Any]]
+ override val _data: mutable.Map[Any, scala.collection.mutable.MutableList[Any]] = mutable.Map.empty[Any, mutable.MutableList[Any]]
 
   def exists(item: T): Boolean = _data.contains(getKey(item))
 

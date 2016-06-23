@@ -24,5 +24,18 @@ class UserShard(
   )
 }
 
+class OrderShard(
+                 override val persistenceId: String
+               ) extends Shard[Order] {
+  val schema = Schema(
+    primaryIndex = new PrimaryIndex[Order](getKey = (u: Order) => u.id),
+    storageEngine = "HashMap",
+    secondaryIndexes = Seq(
+      new HashIndex[Order]("user_id", (o: Order) => o.user_id)
+    )
+  )
+}
+
+case class Order(id: UUID, user_id: UUID, price: Double)
 
 case class User(id: UUID, age: Int, firstName: String, lastName: String)

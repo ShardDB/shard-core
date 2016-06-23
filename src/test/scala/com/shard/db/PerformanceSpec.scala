@@ -34,7 +34,7 @@ class PerformanceSpec extends FlatSpec with Matchers {
 
       utils.timeInSeconds({
         val insertIds = (1 to 100000).map { t =>
-          userTable ? Insert(User(UUID.randomUUID(), 30, "Henry"))
+          userTable ? Insert(User(UUID.randomUUID(), 30, "Henry", "DeWalt"))
         }
         val t = Await.result(Future.sequence(insertIds).mapTo[Seq[UUID]], 100.seconds)
       })
@@ -43,7 +43,7 @@ class PerformanceSpec extends FlatSpec with Matchers {
 
       val timeForInserts = utils.timeInSeconds({
           val insertIds = (1 to 100000).map { t =>
-              userTable ? Insert(User(UUID.randomUUID(), 30, "Henry"))
+              userTable ? Insert(User(UUID.randomUUID(), 30, "Henry", "DeWalt"))
           }
           val t = Await.result(Future.sequence(insertIds).mapTo[Seq[UUID]], 100.seconds)
       })

@@ -4,7 +4,6 @@ import java.util.UUID
 
 import akka.actor.Props
 import akka.routing.{ActorRefRoutee, Broadcast, ConsistentHashingRoutingLogic, Router}
-import com.shard.db.Record
 
 /**
   * Author: Nicholas Connor
