@@ -1,6 +1,6 @@
-name := """minimal-akka-scala-seed"""
+name := """shard-core"""
 
-version := "1.0"
+version := "0.0"
 
 scalaVersion := "2.11.8"
 

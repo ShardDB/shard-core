@@ -1,30 +1,35 @@
 package com.shard.db.structure.schema
 
+import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
-
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
 /**
   * Author: Nicholas Connor
   * Date: 6/22/16
   * Package: com.shard.db.structure.schema
   */
-class HashIndex[T](override val name: String, override val getKey: (T) => Any) extends Index[T] {
+trait HashIndexTr[T, V] extends Index[T, V] {
+  def exists(item: T): Future[Boolean] = Future(_data.contains(getKey(item)))
+  def get(key: Any): Future[Option[V]] = Future(_data.get(key))
+  def size() = Future(_data.size)
+  def apply(key: Any) = get(key)
+}
 
- override val _data: mutable.Map[Any, scala.collection.mutable.MutableList[Any]] = mutable.Map.empty[Any, mutable.MutableList[Any]]
+class HashIndex[T](override val name: String, override val getKey: (T) => Any) extends HashIndexTr[T, mutable.MutableList[Any]] {
 
-  def exists(item: T): Boolean = _data.contains(getKey(item))
+ override val _data: TrieMap[Any, mutable.MutableList[Any]] = TrieMap.empty[Any, mutable.MutableList[Any]]
 
-  def get(key: Any): Seq[Any] = {
-    _data.get(key) match {
-      case Some(ids) => ids.toSeq
-      case None => Seq.empty[Any]
-    }
-  }
-
-  override def add(item: T)(implicit schema: Schema[T]): Unit = {
-    if (exists(item)) {
-      _data(getKey(item)) += schema.primaryIndex.getKey(item)
-    } else {
-      _data(getKey(item)) = mutable.MutableList(schema.primaryIndex.getKey(item))
-    }
+  override def add(item: T)(implicit schema: Schema[T]): Future[Any] = {
+      exists(item).mapTo[Boolean].map {
+        case true =>
+          val key = getKey(item)
+          _data(key) += schema.primaryIndex.getKey(item)
+          key
+        case false =>
+          val key = getKey(item)
+          _data(key) = mutable.MutableList(schema.primaryIndex.getKey(item))
+          key
+      }
   }
 }

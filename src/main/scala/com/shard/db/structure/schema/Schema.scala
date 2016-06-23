@@ -9,5 +9,5 @@ package com.shard.db.structure.schema
 case class Schema[T](
                       primaryIndex: PrimaryIndex[T],
                       storageEngine: String,
-                      secondaryIndexes: Seq[Index[T]] = Seq.empty[Index[T]]
+                      secondaryIndexes: Seq[HashIndex[T]] = Seq.empty[HashIndex[T]]
                     )

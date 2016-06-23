@@ -14,7 +14,7 @@ import scala.concurrent.{Await, Future}
 
 object Database {
 
-  implicit val timeout = Timeout(5 seconds)
+  implicit val timeout = Timeout(15 seconds)
 
   val system = ActorSystem("Database-1")
 

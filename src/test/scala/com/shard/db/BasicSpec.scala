@@ -40,17 +40,10 @@ class BasicSpec extends FlatSpec with Matchers {
 
   }
 
-  "Shards " should "join to other shards" in {
+  "Shards" should "inner join to other shards" in {
+
     val userTable = db.system.actorOf(Props(new UserShard("userShardJoin")), "userShardJoin")
     val orderTable = db.system.actorOf(Props(new OrderShard("orderShardJoin")), "orderShardJoin")
-
-    /*
-    import scala.util.Random
-
-
-    val A = List(1, 2, 3, 4, 5, 6)
-    A(Random.nextInt(A.size))
-     */
 
     val users = Seq(
       User(UUID.randomUUID(), 35, "Minasde", "Komadfpf")
@@ -133,26 +126,14 @@ class BasicSpec extends FlatSpec with Matchers {
 
     import scala.util.Random
     orderTable ! InsertMany(
-      Seq.fill(1000000)(
+      Seq.fill(1000)(
         Order(UUID.randomUUID(), users(Random.nextInt(users.size)).id, Random.nextInt(100).toFloat)
       )
     )
 
-    import utils.timeInSeconds
+    val join = Await.result((userTable ? InnerJoin("primaryKey", GreaterThan, orderTable, "user_id")).mapTo[Seq[(User, Order)]], 20 seconds)
 
-    val f = Await.result((userTable ? InnerJoin("primaryKey", GreaterThan, orderTable, "user_id")).mapTo[Seq[(User, Order)]], 20 seconds)
-
-    val time = timeInSeconds {
-      val j = Await.result((userTable ? InnerJoin("primaryKey", GreaterThan, orderTable, "user_id")).mapTo[Seq[(User, Order)]], 20 seconds)
-      println(j.size)
-    }
-
-    println("TIME ELAPSED: " + time.toString + " SECONDS")
-
-    // join.foreach { j =>
-    //   println(j._1.id.toString + "\t" + j._2.user_id.toString + "\t" + j._1.firstName + "\t" + j._2.price.toString)
-    // }
-    // println("Size of join is: " + join.size.toString)
+    assert(join.size == 1000)
   }
 
 }
