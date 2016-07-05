@@ -2,9 +2,6 @@ package com.shard.db.query
 
 import akka.actor.ActorRef
 import com.shard.db.query.Ops.Op
-import com.shard.db.structure.Shard
-
-import scala.collection.mutable
 
 /**
   * Author: Nicholas Connor
@@ -15,26 +12,31 @@ sealed trait Query {
   val cache = false
 }
 
-trait Statement extends Query
-case object SelectStmt extends Statement
-case object InsertStmt extends Statement
-case object UpdateStmt extends Statement
-case object DeleteStmt extends Statement
+trait Statement[R, T] extends Query {
+  val tableRef: ActorRef
+  val transformer: (R) => T
+}
+
+//case class InsertStatement[R, T](tableRef: ActorRef, transformer: (R) => T) extends Statement[R, T]
+//case class UpdateStatement[R, T](tableRef: ActorRef, transformer: (R) => T, implicit val oldRec: T) extends Statement[R, T]
+
 
 //case class ConjugateQuery[Q, R](
-//                           statement: Statement = SelectStmt,
-//                           wheres: Seq[Where] = Seq.empty[Where],
-//                           sorts: Seq[Sort] = Seq.empty[Sort],
+//                           statement: Statement,
+//                           wheres: Option[Seq[Where]] = None,
+//                           sorts: Option[Seq[Sort]] = None,
 //                           limit: Option[Limit] = None,
 //                           skip: Option[Skip] = None,
-//                           leftJoins: Seq[LeftJoin] = Seq.empty[LeftJoin],
-//                           innerJoins: Seq[InnerJoin] = Seq.empty[InnerJoin],
-//                           rightJoins: Seq[RightJoin] = Seq.empty[RightJoin]
+//                           leftJoins: Option[Seq[LeftJoin]] = None,
+//                           innerJoins: Option[Seq[InnerJoin]] = None,
+//                           rightJoins: Option[Seq[RightJoin]] = None
 //                         ) extends Query
 
 
 case object All
 case class Where[T](expr: FilterExpression, override val cache: Boolean = false) extends Query
+case class WhereIndex(name: String) extends Query
+
 case class Find[T](record: T) extends Query
 // What if I want
 //     Insert(Seq())
@@ -88,5 +90,7 @@ case object Size extends Query
 class Test {
 
   Reduce[(String, Int)]( (a: (String, Int), b: (String, Int)) => (a._1 + b._1, a._2+b._2) )
-
+  // userTable ?   Insert ( userTable, (o: Order, u:user) => User("", o.price))
+  //            // Where ( userTable ("id") > 5 )
+  //            // InnerJoin (userTable("order_id") == orderTable("id")
 }

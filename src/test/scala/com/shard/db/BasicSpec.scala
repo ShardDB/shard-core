@@ -11,7 +11,7 @@ import java.util.UUID
 import akka.actor.Props
 import akka.pattern.ask
 import com.shard.db.query.Ops.GreaterThan
-import com.shard.db.query.{Find, InnerJoin, Insert, InsertMany}
+import com.shard.db.query._
 import org.scalatest._
 
 import scala.concurrent.duration._
@@ -20,20 +20,14 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 class BasicSpec extends FlatSpec with Matchers {
 
-  val db = Database
-
-  import db.timeout
-
   "A shard" should "perform basic operations" in {
-
-    val userTable = db.system.actorOf(Props(new UserShard("testBasic")), "userShardBasic")
 
     val henry = User(UUID.randomUUID(), 30, "Henry", "DeWalt")
 
-    val ins = Await.result((userTable ? Insert(henry)).mapTo[UUID], 2 seconds)
-    val find = Await.result((userTable ? Find(henry)).mapTo[Option[User]].map {
+    val ins = Await.result(UserShard.insert(henry).mapTo[UUID], 20 seconds)
+    val find = Await.result(UserShard.find(henry).map {
       _.get
-    }, 2 seconds)
+    }, 20 seconds)
 
     assert(ins == henry.id)
     assert(find == henry)
@@ -41,9 +35,6 @@ class BasicSpec extends FlatSpec with Matchers {
   }
 
   "Shards" should "inner join to other shards" in {
-
-    val userTable = db.system.actorOf(Props(new UserShard("userShardJoin")), "userShardJoin")
-    val orderTable = db.system.actorOf(Props(new OrderShard("orderShardJoin")), "orderShardJoin")
 
     val users = Seq(
       User(UUID.randomUUID(), 35, "Minasde", "Komadfpf")
@@ -122,18 +113,30 @@ class BasicSpec extends FlatSpec with Matchers {
     )
 
     // seed
-    userTable ! InsertMany(users)
+    Await.result(UserShard.insert(users), 1 second)
 
     import scala.util.Random
-    orderTable ! InsertMany(
-      Seq.fill(1000)(
+    Await.result(OrderShard.insert(
+      Seq.fill(50000)(
         Order(UUID.randomUUID(), users(Random.nextInt(users.size)).id, Random.nextInt(100).toFloat)
       )
-    )
+    ), 3 seconds)
 
-    val join = Await.result((userTable ? InnerJoin("primaryKey", GreaterThan, orderTable, "user_id")).mapTo[Seq[(User, Order)]], 20 seconds)
+    val orderSize = Await.result(OrderShard.size, 3 seconds)
+    val userSize = Await.result(UserShard.size, 3 seconds)
 
-    assert(join.size == 1000)
+    println("NUMBER OF ORDERS ----- " + orderSize.toString)
+    println("NUMBER OF USERS ----- " + userSize.toString)
+
+    assert(orderSize == 50000)
+
+    val join = utils.timeInSeconds {
+      Await.result(UserShard.innerJoin("primaryIndex", GreaterThan, OrderShard.actorRef, "user_id"), 20 seconds)
+    }
+
+    println("JOIN SIZE ----- " + join.toString)
+
+
   }
 
 }

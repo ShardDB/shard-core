@@ -14,7 +14,12 @@ object Ops {
   case object LessThanOrEqualTo extends Op
   case object EqualTo extends Op
 
-  implicit class Operators(s: String) {
+  implicit class OpOperators(o: Op) {
+    def >(value: Any) = FilterExpression("primaryIndex", o, value)
+    def ===(value: Any): FilterExpression = FilterExpression("primaryIndex", o, value)
+  }
+
+  implicit class StringOperators(s: String) {
     def >(value: Any) = FilterExpression(s, Ops.GreaterThan, value)
     def <(value: Any) = FilterExpression(s, Ops.LessThan, value)
     def >=(value: Any) = FilterExpression(s, Ops.GreaterThanOrEqualTo, value)
@@ -22,3 +27,4 @@ object Ops {
     def ===(value: Any): FilterExpression = FilterExpression(s, Ops.EqualTo, value)
   }
 }
+
