@@ -1,6 +1,6 @@
 package com.shard.db.query
 
-import akka.actor.ActorRef
+import akka.actor.{ActorRef, ActorSelection}
 import com.shard.db.query.Ops.Op
 
 /**
@@ -45,38 +45,40 @@ case class Find[T](record: T) extends Query
 // for example ConjugateQuery might just use Insert()
 case class Insert[T](record: T) extends Query
 case class InsertMany[T](record: Seq[T]) extends Query
-case class Update[T](record: T) extends Query
 case class Sort[T, B](expr: (T) => B) extends Query
 
+case class Upsert[T](record: T) extends Query
+case class Update[T](record: T) extends Query
+case class Delete[T](record: T) extends Query
 
 // InnerJoin(on "id" === customers "user_id")
 
 trait JoinQuery {
   val leftKey: String
   val op: Op
-  val rightTable: ActorRef
+  val rightTable: ActorSelection
   val rightKey: String
 }
 
 case class LeftJoin(
                         leftKey: String,
                         op: Op,
-                        rightTable: ActorRef,
+                        rightTable: ActorSelection,
                         rightKey: String
                       ) extends JoinQuery
 
 case class InnerJoin(
                          leftKey: String,
                          op: Op,
-                         rightTable: ActorRef,
+                         rightTable: ActorSelection,
                          rightKey: String
                        ) extends JoinQuery
 
 case class RightJoin(
-                         leftKey: String,
-                         op: Op,
-                         rightTable: ActorRef,
-                         rightKey: String
+                      leftKey: String,
+                      op: Op,
+                      rightTable: ActorSelection,
+                      rightKey: String
                        ) extends JoinQuery
 
 case class Limit(num: Int) extends Query

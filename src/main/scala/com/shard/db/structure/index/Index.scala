@@ -10,7 +10,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
   * Date: 6/19/16
   */
 trait Index[T, V] {
-  var _data: scala.collection.mutable.Map[Any, V] = mutable.Map.empty[Any, V]
+  val _data: scala.collection.mutable.Map[Any, V] = mutable.Map.empty[Any, V]
   val getKey: (T) => Any
   def get(key: Any): Future[Option[V]]
   val name: String

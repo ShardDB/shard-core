@@ -1,6 +1,6 @@
 name := """shard-core"""
 
-version := "0.0.55"
+version := "0.0.61"
 
 scalaVersion := "2.11.8"
 
@@ -8,7 +8,7 @@ val akkaVersion = "2.4.7"
 
 libraryDependencies ++= Seq(
   "org.clapper" %% "classutil" % "1.0.11",
-  "com.mohiva" %% "play-silhouette" % "4.0.0-RC1",
+  //"com.mohiva" %% "play-silhouette" % "4.0.0-RC1",
   // Akka
   "com.typesafe.akka" %% "akka-actor" % akkaVersion,
   "com.typesafe.akka" %% "akka-remote" % akkaVersion,

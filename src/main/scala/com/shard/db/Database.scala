@@ -2,6 +2,7 @@ package com.shard.db
 
 import akka.actor.{ActorSystem, Props}
 import akka.util.Timeout
+import com.shard.db.Messages.RunShard
 import com.shard.db.structure.ShardActor
 import com.shard.db.structure.index.Schema
 
@@ -15,6 +16,9 @@ import scala.concurrent.duration._
 trait Database {
 
   val system: ActorSystem
+
+  val shardManager = system.actorOf(Props[ShardManager], "shards")
+
   /**
   This loads all the schema
     */
@@ -26,10 +30,12 @@ trait Database {
   //val classes = finder.getClasses // classes is an Iterator[ClassInfo]
   //classes.filter{ x => x.toString().contains("schema") }.foreach(println)
 
-
+  def startShell = {
+    system.actorOf(Props(new Shell))
+  }
 
   def addShard[T](schema: Schema[T]) = {
     class Actor() extends ShardActor[T]()(implicitly(schema))
-    system.actorOf(Props(new Actor()), schema.name)
+    shardManager ! RunShard(Props(new Actor()), schema.name)
   }
 }

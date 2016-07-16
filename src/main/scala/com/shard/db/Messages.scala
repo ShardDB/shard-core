@@ -8,5 +8,5 @@ import akka.actor.Props
   * Package: com.shard.db
   */
 object Messages {
-  case class GetOrCreate(props: Props, name: String)
+  case class RunShard(props: Props, name: String)
 }

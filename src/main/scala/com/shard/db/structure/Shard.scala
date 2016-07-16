@@ -1,13 +1,14 @@
 package com.shard.db.structure
 
 
-import akka.actor.{ActorLogging, ActorRef, ActorSelection, ActorSystem}
+import akka.actor.{ActorLogging, ActorRef, ActorSelection, ActorSystem, OneForOneStrategy}
 import akka.persistence.serialization.Snapshot
 import akka.persistence.{PersistentActor, SaveSnapshotFailure, SaveSnapshotSuccess, SnapshotOffer}
 import com.shard.db.query._
 import com.shard.db.query.Ops.EqualTo
 import com.shard.db.structure.index.{HashIndex, PrimaryIndex, Schema}
 import Ops.{Op, StringOperators}
+import akka.actor.SupervisorStrategy.{Escalate, Restart, Resume, Stop}
 import akka.pattern.ask
 import akka.util.Timeout
 
@@ -17,6 +18,7 @@ import scala.concurrent.duration._
 import akka.pattern.pipe
 
 import scala.collection.concurrent.TrieMap
+import scala.util.{Failure, Success, Try}
 
 
 /**
@@ -27,17 +29,19 @@ import scala.collection.concurrent.TrieMap
   * @tparam T
   */
 trait Shard[T] {
+  import scala.reflect.ClassTag
   implicit val timeout = Timeout(30.seconds)
   val databaseName: String
   val shardName: String
   val system: ActorSystem
 
-  val path = s"akka.tcp://$databaseName@localhost:2556/user/$shardName"
-  println(path)
+  val path = s"akka.tcp://$databaseName@localhost:2556/user/shards/$shardName"
   /**
     *
     */
   val actorRef: ActorSelection = system.actorSelection(path)
+
+
 
   /**
     * @param item
@@ -50,6 +54,12 @@ trait Shard[T] {
     * @return
     */
   def insert(items: Seq[T]): Future[Seq[Any]] = (actorRef ? InsertMany(items)).mapTo[Seq[Any]]
+
+  def delete(item: T) = (actorRef ? Delete(item)).mapTo[Boolean]
+
+  def upsert(item: T)(implicit c: ClassTag[T]) = (actorRef ? Upsert(item)).mapTo[T]
+
+  def update(item: T) = (actorRef ? Update(item)).mapTo[Option[T]]
 
   /**
     * @param item
@@ -72,11 +82,17 @@ trait Shard[T] {
 
   def takeSnapshot = actorRef ! Snapshot
 
-  def innerJoin[R](leftKey: String, op: Op, rightTable: ActorRef, rightKey: String): Future[Seq[(T, R)]] = {
+  def innerJoin[R](leftKey: String, op: Op, rightTable: ActorSelection, rightKey: String): Future[Seq[(T, R)]] = {
     (actorRef ? InnerJoin(leftKey, op, rightTable, rightKey)).mapTo[Seq[(T, R)]]
   }
 
-  def where(keyName: String, op: Op, value: Any) = (actorRef ? Where(FilterExpression(keyName, op, value))).mapTo[Option[Seq[T]]]
+  case class PartialJoin[R](rightTable: ActorSelection) {
+    def on(leftKey: String, op: Op, rightKey: String) = (actorRef ? InnerJoin(leftKey, op, rightTable, rightKey)).mapTo[Seq[(T, R)]]
+  }
+
+  def innerJoin[R](rightTable: ActorSelection) = new PartialJoin[R](rightTable)
+
+  def where(keyName: String, op: Op, value: Any) = (actorRef ? Where(FilterExpression(keyName, op, value))).mapTo[Seq[T]]
 }
 
 
@@ -88,6 +104,25 @@ trait Shard[T] {
 abstract class ShardActor[T](
                        implicit val schema: Schema[T]
                        ) extends PersistentActor with ActorLogging {
+
+  override protected def onRecoveryFailure(cause: Throwable, event: Option[Any]): Unit = {
+    for(x <- 1 to 50){
+      println("RECOVERY FAILURE")
+    }
+  }
+
+  def onPersistFailure = {
+    for(x <- 1 to 50){
+      println("RECOVERY FAILURE")
+    }
+  }
+
+  override val supervisorStrategy =
+    OneForOneStrategy(maxNrOfRetries = 100, withinTimeRange = 1 minute) {
+      case _      =>
+        println("Failure occured")
+        Resume
+    }
 
   println(self.path.name)
 
@@ -101,13 +136,18 @@ abstract class ShardActor[T](
     if (persist) {
       persistAsync(event)(func)
     } else {
-      func(event)
+      Try {
+        func(event)
+      } match {
+        case Success(x) =>
+        case Failure(ex) => println(ex.getMessage)
+      }
     }
   }
 
   def handleCommands(persist: Boolean): Receive = {
     case All =>
-      handleSingleCommand(All, persist) { x => sender() ! x }
+      handleSingleCommand(All, persist) { x => all pipeTo sender() }
     /// without indexes we could do (L, R) => Boolean
     /// lets keep to the assumption that we
     /// only use HashIndexes for a sec
@@ -116,7 +156,6 @@ abstract class ShardActor[T](
     }
 
     case i: Insert[T] => handleSingleCommand(i, persist) { evt =>
-      println("Inserting record....")
       insert(evt.record) pipeTo sender()
     }
     case i: InsertMany[T] => handleSingleCommand(i, persist) { evt => insertMany(evt.record) pipeTo sender() }
@@ -143,7 +182,7 @@ abstract class ShardActor[T](
     */
   def receiveRecover: Receive = handleCommands(false) orElse {
     case SnapshotOffer(_, s: TrieMap[Any, T]) =>
-      state._data = s
+      s.foreach{ case (k,v) => state._data.put(k, v)}
   }
 
   /**
@@ -242,7 +281,7 @@ abstract class ShardActor[T](
     * @param expr
     * @return
     */
-  protected def where(expr: FilterExpression): Future[Option[Seq[T]]] = {
+  protected def where(expr: FilterExpression): Future[Seq[T]] = {
     val ids = _indexes.getOrElse(expr.keyName, throw new RuntimeException("Index " + expr.keyName + " does not exist")).get(expr.value)
 
     ids.map {
@@ -251,12 +290,26 @@ abstract class ShardActor[T](
           realIds.map { theId =>
             state.get(theId)
           }
-        }.map(_.flatten).map(Some(_))
+        }.map(_.flatten)
       case None =>
-        Future(None)
+        Future(Seq.empty[T])
     }.flatMap(identity)
   }
 
+  protected def update(item: T): Future[Option[T]] = {
+    Future(state._data.replace(schema.primaryIndex.getKey(item), item))
+  }
+
+  protected def delete(item: T): Future[Boolean] = Future {
+    state._data.remove(schema.primaryIndex.getKey(item), item)
+  }
+
+  protected def upsert(item: T): Future[T] = {
+    Future {
+      state._data.update(schema.primaryIndex.getKey(item), item)
+      item
+    }
+  }
   /**
     * @param record
     * @return
@@ -278,14 +331,14 @@ abstract class ShardActor[T](
     * @param item
     * @return
     */
-  protected def insert(item: T): Future[Option[T]] = {
+  protected def insert(item: T): Future[T] = {
     val sec = Future.sequence(_indexes.map { case (name, ui) => ui.add(item) })
     val indexing =
       for {
         secondaries <- sec
-        primary <- state.add(item).map(state.get(_))
-      } yield (primary, secondaries)
+        primary <- state.add(item)
+      } yield (item, primary, secondaries)
 
-    indexing.map{_._1}.flatMap(identity)
+    indexing.map{_._1}
   }
 }
