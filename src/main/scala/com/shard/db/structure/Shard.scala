@@ -45,7 +45,7 @@ trait Shard[T] {
     * @param item
     * @return
     */
-  def insert(item: T) = (actorRef ? Insert(item)).mapTo[Future[T]]
+  def insert(item: T) = (actorRef ? Insert(item)).mapTo[T]
 
   /**
     * @param items
