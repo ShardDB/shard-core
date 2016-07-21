@@ -1,6 +1,6 @@
 name := """shard-core"""
 
-version := "0.0.61"
+version := "0.0.63"
 
 scalaVersion := "2.11.8"
 

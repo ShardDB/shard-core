@@ -41,19 +41,17 @@ trait Shard[T] {
     */
   val actorRef: ActorSelection = system.actorSelection(path)
 
-
-
   /**
     * @param item
     * @return
     */
-  def insert(item: T) = actorRef ? Insert(item)
+  def insert(item: T) = (actorRef ? Insert(item)).mapTo[Future[T]]
 
   /**
     * @param items
     * @return
     */
-  def insert(items: Seq[T]): Future[Seq[Any]] = (actorRef ? InsertMany(items)).mapTo[Seq[Any]]
+  def insert(items: Seq[T]): Future[Seq[Any]] = (actorRef ? InsertMany(items)).mapTo[Seq[T]]
 
   def delete(item: T) = (actorRef ? Delete(item)).mapTo[Boolean]
 
@@ -111,19 +109,6 @@ abstract class ShardActor[T](
     }
   }
 
-  def onPersistFailure = {
-    for(x <- 1 to 50){
-      println("RECOVERY FAILURE")
-    }
-  }
-
-  override val supervisorStrategy =
-    OneForOneStrategy(maxNrOfRetries = 100, withinTimeRange = 1 minute) {
-      case _      =>
-        println("Failure occured")
-        Resume
-    }
-
   println(self.path.name)
 
   val persistenceId = schema.name
@@ -159,6 +144,10 @@ abstract class ShardActor[T](
       insert(evt.record) pipeTo sender()
     }
     case i: InsertMany[T] => handleSingleCommand(i, persist) { evt => insertMany(evt.record) pipeTo sender() }
+
+    case u: Upsert[T] => handleSingleCommand(u, persist) { evt => upsert(evt.record) pipeTo sender()}
+    case u: Update[T] => handleSingleCommand(u, persist) { evt => update(evt.record) pipeTo sender()}
+    case d: Delete[T] => handleSingleCommand(d, persist) { evt => delete(evt.record) pipeTo sender()}
 
     case f: Find[T] => find(f.record) pipeTo sender()
 

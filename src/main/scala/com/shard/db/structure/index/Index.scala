@@ -1,6 +1,5 @@
 package com.shard.db.structure.index
 
-import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
